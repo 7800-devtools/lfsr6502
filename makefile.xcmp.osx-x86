@@ -1,0 +1,14 @@
+export PATH := /usr/i686-apple-darwin10/bin:$(PATH)
+ARCH=Darwin.x86
+CFLAGS=-arch i386 -m32 -O0
+CC=i686-apple-darwin10-gcc
+LDIR=contrib/${ARCH}
+ 
+all: lfsr6502.${ARCH}
+ 
+lfsr6502.${ARCH}: lfsr6502.c
+	$(CC) $(CFLAGS) lfsr6502.c -o $@ -L${LDIR}/lib -I${LDIR}/include -lm
+ 
+clean:
+	rm -f lfsr6502.${ARCH}
+

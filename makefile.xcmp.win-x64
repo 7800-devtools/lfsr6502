@@ -1,0 +1,13 @@
+CFLAGS=-O2
+CC=x86_64-w64-mingw32-gcc
+ARCH=Win32.x64
+LDIR=contrib/${ARCH}
+ 
+all: lfsr6502.${ARCH}.exe
+ 
+lfsr6502.${ARCH}.exe: lfsr6502.c
+	$(CC) $(CFLAGS) lfsr6502.c -o $@ -L${LDIR}/lib -I${LDIR}/include -lm
+ 
+clean:
+	rm -f lfsr6502.${ARCH}.exe
+

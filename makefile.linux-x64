@@ -1,0 +1,13 @@
+CC     = gcc
+CFLAGS = -Wall -g -O0 -m64
+ARCH = Linux.x64
+LDIR=contrib/${ARCH}
+ 
+all: lfsr6502.${ARCH}
+ 
+lfsr6502.${ARCH}: lfsr6502.c
+	$(CC) $(CFLAGS) lfsr6502.c -o $@ -L${LDIR}/lib -I${LDIR}/include -lm
+ 
+clean:
+	rm -f lfsr6502.${ARCH}
+
