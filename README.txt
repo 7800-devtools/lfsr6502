@@ -92,7 +92,7 @@ batari8rev (1)
 
 
 batari16 (2)
-	Type:         galois16 lfsr
+	Type:         galois8 extended to 16 bits
 	6502 author:  Fred Quimby
 	RAM:          2 bytes
 	Size:         13 bytes
@@ -271,6 +271,30 @@ overlap24 (7)
 		  EOR randv2
 		  STY randv2
 		  STA randv0
+
+riverraid16 (8)
+	Type:         ??
+	6502 author:  Carol Shaw
+	RAM:          2 bytes
+	Size:         14 bytes
+	Cycles:       27
+	Period:       57337
+	References:   http://www.bjars.com/source/RiverRaid.asm
+	Notes:	"randomHi is very random, randomLo is NOT when more than one
+		bit is used, because: randomLo[x+1] = randomLo[x]*2 + 0/1, but
+		randomLo is used more often [in the game] [...]" 
+			--Thomas Jentzsch
+	Sample:       (a814) 0a 05 b6 5b 99 f8 7c 3e ...
+	Code:
+		  LDA randv1
+		  ASL
+		  ASL
+		  ASL
+		  EOR randv1
+		  ASL
+		  ROL randv0
+		  ROL randv1
+		  LDA randv1
 
 
 Legal Stuff

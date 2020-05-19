@@ -4,7 +4,7 @@ CFLAGS = -Wall -g -O0
 all: lfsr6502
  
 lfsr6502: lfsr6502.c
-	$(CC) $(CFLAGS) lfsr6502.c -o $@ 
+	$(CC) $(CFLAGS) lfsr6502.c -o $@ -lm
  
 clean:
 	rm -f lfsr6502

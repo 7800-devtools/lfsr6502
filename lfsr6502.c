@@ -1,18 +1,23 @@
 #define PROGNAME "lfsr6502 v0.1"
+#define REPORTNAME "lfsr6502 LFSR Quality Analsys Report, v0.1"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 
 
 int A, X, Y, CARRY, OVERFLOW, NEGATIVE, ZERO;
 int randv[8];
+int randvsave[8];
 int iterations;
 int outformat;
 int algorithm;
 int arguments;
-int periodcheck;
+int reportflag;
+int bitmapflag;
+long period;
 
 void BIT(int val);
 void CMP(int val);
@@ -65,6 +70,17 @@ void runpitfall8right(void);
 void runxorshift16(void);
 void runxhybrid24(void);
 void runoverlap24(void);
+void runriverraid16(void);
+
+void generatebitmap(void);
+void generatereport(void);
+long getperiod(void);
+int  detectseedbytes(void);
+void saveseed(void);
+void restoreseed(void);
+
+void calcdeviation(void);
+float calcvar, calcsdev, calccv;	
 
 #define OUTHEXSPC 0
 #define OUTHEXRET 1
@@ -81,17 +97,31 @@ void runoverlap24(void);
 #define ALGXORSHIFT16      5
 #define ALGXHYBRID24       6
 #define ALGOVERLAP24       7
-#define ALGEND             8
+#define ALGRIVERRAID16     8
+#define ALGEND             9
+
+char *algorithmnames[10] = {
+	"batari8",
+	"batari8rev",
+	"batari16",
+	"pitfall8left",
+	"pitfall8right",
+	"xorshift16",
+	"xhybrid24",
+	"overlap24",
+	"riverraid16"
+	};
 
 int main(int argc, char **argv)
 {
     int t;
-    long period = 0;
     iterations = -1;		// default is infinite loops
     algorithm = ALGBATARI8;	// default is batari8
     outformat = OUTHEXSPC;	// default is spaced hex output
     arguments = 0;
-    periodcheck = 0;
+    reportflag = 0;
+    bitmapflag = 0;
+    period = 0;
 
     // default seed is 0x0101010101010101
     for (t=0;t<8;t++)
@@ -102,33 +132,11 @@ int main(int argc, char **argv)
     if (!arguments)
         usage(argv[0]);
 
-    if(periodcheck)
-    {
-        int s;
-        int sample[16];
-        int compare[16];
-        printf("Searching for period...\n");
-    	for (period = 0;period<16; period++)
-        {
-            runalgorithm();
-            sample[period]=A;
-            compare[period]=A;
-        }
-    	for (;; period++)
-        {
-            runalgorithm();
-            for(s=0;s<15;s++)
-                compare[s]=compare[s+1];
-            compare[15]=A;
-            for(s=0;s<16;s++)
-                if(sample[s]!=compare[s])
-                    break;
-            if(s==16)
-                break;
-	}
-        printf("Period found: %ld\n",period-15);
-        exit(0);
-    }
+    if(bitmapflag)
+        generatebitmap();
+
+    if(reportflag)
+        generatereport();
 
     for (t = 0; (iterations < 0) || (t < iterations); t++)
     {
@@ -319,6 +327,20 @@ void runoverlap24(void)
     STA (randv[0]);		//  sta randv0
 }
 
+void runriverraid16(void)
+{
+    LDA (randv[1]);		//  LDA randv1
+    ASL (A);			//  ASL
+    ASL (A);			//  ASL
+    ASL (A);			//  ASL
+    EOR (randv[1]);		//  EOR randv1
+    ASL (A);			//  ASL
+    ROL (randv[0]);		//  ROL randv0
+    ROL (randv[1]);		//  ROL randv1
+    LDA (randv[1]);		//  LDA randv1
+}
+
+
 void runalgorithm(void)
 {
     switch (algorithm)
@@ -347,15 +369,162 @@ void runalgorithm(void)
     case ALGOVERLAP24:
 	runoverlap24();
 	break;
+    case ALGRIVERRAID16:
+	runriverraid16();
+	break;
     }
 }
 
+void generatereport(void)
+{
+    int seedbytes;
+    char underline[80];
+
+    // Report title...
+    memset(underline,'-',strlen(REPORTNAME));
+    underline[strlen(REPORTNAME)]=0;
+    printf("%s\n",REPORTNAME);
+    printf("%s\n",underline);
+
+    // LFSR being analysed...
+    printf("LFSR:               %s (%d)\n",algorithmnames[algorithm],algorithm);
+
+    // seed bytes are algorithmically confirmed rather than assumed...
+    seedbytes = detectseedbytes();
+    printf("Seed Bytes:         %d\n",seedbytes);
+
+    period = getperiod();
+    printf("Period:             %ld\n",period);
+
+
+    calcdeviation();
+    printf("Variance:           %f\n",calcvar);
+    printf("Std Deviation:      %f\n",calcsdev);
+    printf("Coeff of Variation: %f\n",calccv);
+
+    /* 
+	IDEAS for testing...
+		-representation: identify missing or extra values
+		-clumpiness: run standard deviation values on a few different
+		 window sizes.
+		-repeat above steps on the upper and lower nibbles
+    */
+
+    exit(0);
+}
+
+void calcdeviation(void)
+{
+    long i;
+    float mean, sd, var, dev, sum = 0.0, sdev = 0.0, cv; 
+ 
+    calcsdev = 0.0;
+
+    period=getperiod();
+
+    saveseed();
+
+    for(i=0;i<period;i++)
+    {
+        runalgorithm();
+        sum = sum + A;
+    }
+
+    mean = sum / period;
+
+    restoreseed();
+
+    for(i=0;i<period;i++)
+    {
+        runalgorithm();
+        dev = (A - mean)*(A - mean);
+        sdev = sdev + dev;
+    }
+
+    var = sdev / (period - 1);
+    sd = sqrt(var);
+    cv = (sd/mean)*100;
+
+    calcsdev = sd;
+    calccv = cv;
+    calcvar = var;
+
+    restoreseed();
+}
+
+int detectseedbytes(void)
+{
+	int origseed[8], usedbytes[8];
+        int s,t, seedbytecount;
+
+	// save the seed, init storage
+	for (t=0;t<8;t++)
+        {
+		origseed[t]=randv[t];
+                usedbytes[t]=0;
+        }
+
+	for(t=0;t<349;t++) // not exhastive
+        {
+            for(s=0;s<8;s++)
+                usedbytes[s]=usedbytes[s]|(origseed[s]^randv[s]);
+            runalgorithm();
+        }
+
+	// restore the original seed
+	for (t=0;t<8;t++)
+		randv[t]=origseed[t];
+
+        for(s=0;s<8;s++)
+        {
+            if(usedbytes[s]!=0)
+                seedbytecount++;
+        }
+        return(seedbytecount);
+}
+
+long getperiod(void)
+{
+	int origseed[8];
+	int t;
+	long locperiod;
+
+	if (period>0)
+		return(period);
+
+	// To check the period, we don't actually need to look at the random 
+	// sequence. We just need to find when the seed values match the
+	// their starting values.
+
+	// save the seed
+	for (t=0;t<8;t++)
+		origseed[t]=randv[t];
+
+
+    	for (locperiod=0;locperiod<0xffffffffffff; locperiod++)
+        {
+            runalgorithm();
+            for(t=0;t<8;t++)
+            {
+                if(origseed[t]!=randv[t])
+                    break;
+            }
+            if(t==8)
+                break;
+	}
+
+	// restore the seed
+	for (t=0;t<8;t++)
+		randv[t]=origseed[t];
+
+        return(++locperiod);
+}
 
 void processargs(int argc, char **argv)
 {
     int t, c;
     long seed;
-    while ((c = getopt(argc, argv, ":a:i:o:s:hp")) != -1)
+    while ((c = getopt(argc, argv, ":a:i:o:s:hrb")) != -1)
     {
 	switch (c)
 	{
@@ -399,8 +568,13 @@ void processargs(int argc, char **argv)
 	case 'h':
 	    usage(argv[0]);
 	    break;
-	case 'p':
-	    periodcheck++;
+	case 'r':
+	    reportflag++;
+            arguments++;
+	    break;
+	case 'b':
+	    bitmapflag++;
+            arguments++;
 	    break;
 	default:
 	    fprintf(stderr, "ERR: usupported argument\n");
@@ -508,11 +682,109 @@ inline void doROR(int *VAL)
 	*VAL = *VAL | 0x80;
 }
 
+void saveseed(void)
+{
+	int t;
+	for(t=0;t<8;t++)
+		randvsave[t]=randv[t];
+}
+void restoreseed(void)
+{
+	int t;
+	for(t=0;t<8;t++)
+		randv[t]=randvsave[t];
+}
+
+void generatebitmap(void)
+{
+    period = getperiod();
+
+    FILE *f;
+    unsigned char *img = NULL;
+
+    int w,h,bit,x,y;
+    int r,g,b;
+
+    if(period<256)
+    {
+        w=48; // 6x8 bits 
+        h=48; 
+    }
+    else
+    {
+        w=640; // 80x8 bits
+        h=640;
+    }
+
+    int filesize = 54 + 3*w*h;  //w is your image width, h is image height
+
+    img = (unsigned char *)malloc(3*w*h);
+    memset(img,0,3*w*h);
+
+    saveseed();
+    for(int j=0; j<h; j++)
+    {
+        for(int i=0; i<w; i=i+8)
+        {
+            runalgorithm();
+            for(bit=0;bit<8;bit=bit+1)
+            {
+                x=i; y=(h-1)-j;
+                r=255;g=255;b=255;
+		if(A&0x80)
+		{  
+                    r=0;g=0;b=0;
+                }
+                img[(bit+x+y*w)*3+2] = (unsigned char)(r);
+                img[(bit+x+y*w)*3+1] = (unsigned char)(g);
+                img[(bit+x+y*w)*3+0] = (unsigned char)(b);
+                A=A<<1;
+            }
+        }
+    }
+
+    restoreseed();
+
+    unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
+    unsigned char bmpinfoheader[40] = {40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0};
+    unsigned char bmppad[3] = {0,0,0};
+
+    bmpfileheader[ 2] = (unsigned char)(filesize);
+    bmpfileheader[ 3] = (unsigned char)(filesize>>8);
+    bmpfileheader[ 4] = (unsigned char)(filesize>>16);
+    bmpfileheader[ 5] = (unsigned char)(filesize>>24);
+
+    bmpinfoheader[ 4] = (unsigned char)(w);
+    bmpinfoheader[ 5] = (unsigned char)(w>> 8);
+    bmpinfoheader[ 6] = (unsigned char)(w>>16);
+    bmpinfoheader[ 7] = (unsigned char)(w>>24);
+    bmpinfoheader[ 8] = (unsigned char)(h);
+    bmpinfoheader[ 9] = (unsigned char)(h>> 8);
+    bmpinfoheader[10] = (unsigned char)(h>>16);
+    bmpinfoheader[11] = (unsigned char)(h>>24);
+
+    char filename[256];
+    sprintf(filename,"%s.bmp",algorithmnames[algorithm]);
+
+    f = fopen(filename,"wb");
+    fwrite(bmpfileheader,1,14,f);
+    fwrite(bmpinfoheader,1,40,f);
+    for(int i=0; i<h; i++)
+    {
+        fwrite(img+(w*(h-i-1)*3),3,w,f);
+        fwrite(bmppad,1,(4-(w*3)%4)%4,f);
+    }
+
+    free(img);
+    fclose(f);
+    exit(0);
+}
+
 void usage(char *programname)
 {
     fprintf(stderr, "%s %s %s\n", PROGNAME, __DATE__, __TIME__);
     fprintf(stderr, "\n");
-    fprintf(stderr, "Usage: %s [-a #] [-i #] [-o #] [-s #]\n", programname);
+    fprintf(stderr, "Usage: %s [-a #] [-i #] [-o #] [-s #] [-r] [-b]\n", programname);
     fprintf(stderr, "  -a #  specifies the lfsr algorithm:\n");
     fprintf(stderr, "        0 = batari8 [default]\n");
     fprintf(stderr, "        1 = batari8rev\n");
@@ -522,6 +794,7 @@ void usage(char *programname)
     fprintf(stderr, "        5 = xorshift16\n");
     fprintf(stderr, "        6 = xhybrid24\n");
     fprintf(stderr, "        7 = overlap24\n");
+    fprintf(stderr, "        8 = riverraid16\n");
     fprintf(stderr, "  -i #  specifies the number of iterations.\n");
     fprintf(stderr, "        use -1 for infinite output. [default]\n");
     fprintf(stderr, "  -o #  specifies the output format:\n");
@@ -532,6 +805,8 @@ void usage(char *programname)
     fprintf(stderr, "        4 = raw character ouput\n");
     fprintf(stderr, "  -s #  specify a seed value. decimal assumed, unless hex notation is used.\n");
     fprintf(stderr, "        [default:0x0101010101010101]\n");
+    fprintf(stderr, "  -b    generate a bitmap from the selected LFSR.\n");
+    fprintf(stderr, "  -r    generate a quality report for the selected LFSR.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "examples:\n");
     fprintf(stderr, "  %s -a 5 -i 10 -o 1 -s 0xdb07\n", programname);

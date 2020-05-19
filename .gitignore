@@ -38,6 +38,10 @@
 # vi backup files
 .*.swp
 
+# generated pictures
+*.bmp
+*.png
+
 ########## project specific ignores ##########
 lfsr6502
 packages
