@@ -17,7 +17,9 @@ Running lfsr6502
 lfsr6502 is a command-line utility. If run without arguments, it will output
 it's usage information...
 
-lfsr6502 [-a #] [-i #] [-o #] [-s #]
+lfsr6502 v0.1 May 19 2020 18:10:02
+
+Usage: ./lfsr6502 [-a #] [-i #] [-o #] [-s #] [-r] [-b]
   -a #  specifies the lfsr algorithm:
         0 = batari8 [default]
         1 = batari8rev
@@ -27,6 +29,7 @@ lfsr6502 [-a #] [-i #] [-o #] [-s #]
         5 = xorshift16
         6 = xhybrid24
         7 = overlap24
+        8 = riverraid16
   -i #  specifies the number of iterations.
         use -1 for infinite output. [default]
   -o #  specifies the output format:
@@ -37,6 +40,8 @@ lfsr6502 [-a #] [-i #] [-o #] [-s #]
         4 = raw character ouput
   -s #  specify a seed value. decimal assumed, unless hex notation is used.
         [default:0x0101010101010101]
+  -b    generate a bitmap from the selected LFSR.
+  -r    generate a quality report for the selected LFSR.
 
 examples:
   ./lfsr6502 -a 5 -i 10 -o 1 -s 0xdb07
