@@ -1,4 +1,4 @@
-#define PROGNAME "lfsr6502 v0.1"
+#define PROGNAME "lfsr6502 v0.2"
 #define REPORTNAME "lfsr6502 LFSR Quality Analsys Report, v0.1"
 
 #include <stdio.h>
@@ -8,7 +8,11 @@
 #include <math.h>
 
 
-int A, X, Y, CARRY, OVERFLOW, NEGATIVE, ZERO;
+int A, X, Y;
+int _CARRY;
+int _OFLOW; 
+int _NEGATIVE; 
+int _ZERO;
 int randv[8];
 int randvsave[8];
 int iterations;
@@ -24,12 +28,12 @@ void CMP(int val);
 void CPX(int val);
 void CPY(int val);
 
-#define BEQ if(ZERO) goto 
-#define BNE if(!ZERO) goto 
-#define BVS if(OVERFLOW) goto 
-#define BVC if(!OVERFLOW) goto 
-#define BCS if(CARRY) goto 
-#define BCC if(!CARRY) goto 
+#define BEQ if(_ZERO) goto 
+#define BNE if(!_ZERO) goto 
+#define BVS if(_OFLOW) goto 
+#define BVC if(!_OFLOW) goto 
+#define BCS if(_CARRY) goto 
+#define BCC if(!_CARRY) goto 
 
 #define LDA A = 
 #define LDY Y = 
@@ -65,6 +69,7 @@ void runalgorithm(void);
 void runbatari8(void);
 void runbatari8rev(void);
 void runbatari16(void);
+void runbatari16rev(void);
 void runpitfall8left(void);
 void runpitfall8right(void);
 void runxorshift16(void);
@@ -92,13 +97,14 @@ float calcvar, calcsdev, calccv;
 #define ALGBATARI8         0
 #define ALGBATARI8REV      1
 #define ALGBATARI16        2
-#define ALGPITFALL8LEFT    3
-#define ALGPITFALL8RIGHT   4
-#define ALGXORSHIFT16      5
-#define ALGXHYBRID24       6
-#define ALGOVERLAP24       7
-#define ALGRIVERRAID16     8
-#define ALGEND             9
+#define ALGBATARI16REV     3
+#define ALGPITFALL8LEFT    4
+#define ALGPITFALL8RIGHT   5
+#define ALGXORSHIFT16      6
+#define ALGXHYBRID24       7
+#define ALGOVERLAP24       8
+#define ALGRIVERRAID16     9
+#define ALGEND             10
 
 char *algorithmnames[10] = {
 	"batari8",
@@ -201,6 +207,30 @@ void runbatari16(void)
     STA (randv[0]);		//  STA randv0
     EOR (randv[1]);		//  EOR randv1
 }
+
+void runbatari16rev(void)
+{
+    // galois16 lfsr
+    // 6502 implementation by Fred Quimby
+    // reversal by bogax
+    // ram    : 2 bytes
+    // cycles : 22-23
+    // size   : 16 bytes
+    // notes  : this is "rand16" routine in batari Basic, 
+    //          and the rand routine in 7800basic, run backwards.
+
+    LDA (randv[1]);		//  LDA randv1
+    LSR (A);			//  LSR
+    LDA (randv[0]);		//  LDA randv0
+    ROL (A);			//  ROL
+    BCC skip_eor16;		//  BCC skip_eor16
+    EOR (0x68);			//  EOR #$68
+skip_eor16:			//skip_eor16
+    STA (randv[0]);		//  STA randv0
+    ROR (randv[1]);		//  ROR randv1
+    EOR (randv[1]);		//  EOR randv1
+}
+
 
 void runpitfall8left(void)
 {
@@ -354,6 +384,9 @@ void runalgorithm(void)
     case ALGBATARI16:
 	runbatari16();
 	break;
+    case ALGBATARI16REV:
+	runbatari16rev();
+	break;
     case ALGPITFALL8LEFT:
 	runpitfall8left();
 	break;
@@ -403,11 +436,20 @@ void generatereport(void)
     printf("Coeff of Variation: %f\n",calccv);
 
     /* 
-	IDEAS for testing...
-		-representation: identify missing or extra values
+	This report is very incomplete. The intention is to go deeper than just
+	deviation values, but a lot of the standard random testing techniques 
+	are too difficult for an 8-bit or 16-bit LFSR to do anything but 
+	spectacularly fail. So I haven't found anything that judges these small
+	LFSRs relative to each other.
+
+	Some future IDEAS for testing...
+
+		-representation: identify missing or duplicated values in 
+			the period.
 		-clumpiness: run standard deviation values on a few different
-		 window sizes.
-		-repeat above steps on the upper and lower nibbles
+		 window sizes. The maximum clumpiness data can be 
+		-repeat any tests strictly on the upper and lower nibbles, to
+			check for issues when masked values are used.
     */
 
     exit(0);
@@ -609,74 +651,74 @@ void outputbyte(int val)
 
 inline void BIT(int VAL)
 {
-    OVERFLOW = (VAL & 0x40) >> 6;
-    NEGATIVE = (VAL & 0x80) >> 7;
-    ZERO = VAL & A;
+    _OFLOW = (VAL & 0x40) >> 6;
+    _NEGATIVE = (VAL & 0x80) >> 7;
+    _ZERO = VAL & A;
 }
 
 inline void CMP(int VAL)
 {
 	int result;
-	ZERO = 0; NEGATIVE = 0; CARRY = 0;
+	_ZERO = 0; _NEGATIVE = 0; _CARRY = 0;
 	result = A - VAL;
 	if(result==0)
-		ZERO = 1;
+		_ZERO = 1;
 	if(result<0)
-		NEGATIVE = 1;
+		_NEGATIVE = 1;
 	if(result>=0)
-		CARRY = 1;
+		_CARRY = 1;
 }
 
 inline void CPX(int VAL)
 {
 	int result;
-	ZERO = 0; NEGATIVE = 0; CARRY = 0;
+	_ZERO = 0; _NEGATIVE = 0; _CARRY = 0;
 	result = X - VAL;
 	if(result==0)
-		ZERO = 1;
+		_ZERO = 1;
 	if(result<0)
-		NEGATIVE = 1;
+		_NEGATIVE = 1;
 	if(result>=0)
-		CARRY = 1;
+		_CARRY = 1;
 }
 
 inline void CPY(int VAL)
 {
 	int result;
-	ZERO = 0; NEGATIVE = 0; CARRY = 0;
+	_ZERO = 0; _NEGATIVE = 0; _CARRY = 0;
 	result = Y - VAL;
 	if(result==0)
-		ZERO = 1;
+		_ZERO = 1;
 	if(result<0)
-		NEGATIVE = 1;
+		_NEGATIVE = 1;
 	if(result>=0)
-		CARRY = 1;
+		_CARRY = 1;
 }
 
 inline void doASL(int *VAL)
 {
-    CARRY = (*VAL & 0x80) >> 7; // CARRY is always 0 or 1
+    _CARRY = (*VAL & 0x80) >> 7; // _CARRY is always 0 or 1
     *VAL = (*VAL << 1) & 0xff;
 }
 
 inline void doROL(int *VAL)
 {
-    *VAL = (*VAL << 1) | CARRY;
-    CARRY = (*VAL & 0x100) >> 8; // CARRY is always 0 or 1
+    *VAL = (*VAL << 1) | _CARRY;
+    _CARRY = (*VAL & 0x100) >> 8; // _CARRY is always 0 or 1
     *VAL = *VAL & 0xff;
 }
 
 inline void doLSR(int *VAL)
 {
-    CARRY = *VAL & 1;
+    _CARRY = *VAL & 1;
     *VAL = *VAL >> 1;
 }
 
 inline void doROR(int *VAL)
 {
     int savecarry;
-    savecarry = CARRY; // save the bit that will be carried
-    CARRY = *VAL & 1;
+    savecarry = _CARRY; // save the bit that will be carried
+    _CARRY = *VAL & 1;
     *VAL = *VAL >> 1;
     if (savecarry)
 	*VAL = *VAL | 0x80;
@@ -722,9 +764,11 @@ void generatebitmap(void)
     memset(img,0,3*w*h);
 
     saveseed();
-    for(int j=0; j<h; j++)
+
+    int i,j;
+    for(j=0; j<h; j++)
     {
-        for(int i=0; i<w; i=i+8)
+        for(i=0; i<w; i=i+8)
         {
             runalgorithm();
             for(bit=0;bit<8;bit=bit+1)
@@ -769,7 +813,7 @@ void generatebitmap(void)
     f = fopen(filename,"wb");
     fwrite(bmpfileheader,1,14,f);
     fwrite(bmpinfoheader,1,40,f);
-    for(int i=0; i<h; i++)
+    for(i=0; i<h; i++)
     {
         fwrite(img+(w*(h-i-1)*3),3,w,f);
         fwrite(bmppad,1,(4-(w*3)%4)%4,f);
@@ -789,12 +833,13 @@ void usage(char *programname)
     fprintf(stderr, "        0 = batari8 [default]\n");
     fprintf(stderr, "        1 = batari8rev\n");
     fprintf(stderr, "        2 = batari16\n");
-    fprintf(stderr, "        3 = pitfall8left\n");
-    fprintf(stderr, "        4 = pitfall8right\n");
-    fprintf(stderr, "        5 = xorshift16\n");
-    fprintf(stderr, "        6 = xhybrid24\n");
-    fprintf(stderr, "        7 = overlap24\n");
-    fprintf(stderr, "        8 = riverraid16\n");
+    fprintf(stderr, "        3 = batari16\n");
+    fprintf(stderr, "        4 = pitfall8left\n");
+    fprintf(stderr, "        5 = pitfall8right\n");
+    fprintf(stderr, "        6 = xorshift16\n");
+    fprintf(stderr, "        7 = xhybrid24\n");
+    fprintf(stderr, "        8 = overlap24\n");
+    fprintf(stderr, "        9 = riverraid16\n");
     fprintf(stderr, "  -i #  specifies the number of iterations.\n");
     fprintf(stderr, "        use -1 for infinite output. [default]\n");
     fprintf(stderr, "  -o #  specifies the output format:\n");
