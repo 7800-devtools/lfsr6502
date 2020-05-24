@@ -17,19 +17,19 @@ Running lfsr6502
 lfsr6502 is a command-line utility. If run without arguments, it will output
 it's usage information...
 
-lfsr6502 v0.1 May 19 2020 18:10:02
 
-Usage: ./lfsr6502 [-a #] [-i #] [-o #] [-s #] [-r] [-b]
+Usage: lfsr6502 [-a #] [-i #] [-o #] [-s #] [-r] [-b]
   -a #  specifies the lfsr algorithm:
         0 = batari8 [default]
         1 = batari8rev
         2 = batari16
-        3 = pitfall8left
-        4 = pitfall8right
-        5 = xorshift16
-        6 = xhybrid24
-        7 = overlap24
-        8 = riverraid16
+        3 = batari16rev
+        4 = pitfall8left
+        5 = pitfall8right
+        6 = xorshift16
+        7 = xhybrid24
+        8 = overlap24
+        9 = riverraid16
   -i #  specifies the number of iterations.
         use -1 for infinite output. [default]
   -o #  specifies the output format:
@@ -118,8 +118,32 @@ batari16 (2)
 		  STA randv0
 		  EOR randv1
 
+batari16rev (3)
+	Type:         galois8 extended to 16 bits
+	6502 author:  (forward) Fred Quimby, (reversal) bogax
+	RAM:          2 bytes
+	Size:         16 bytes
+	Cycles:       22-23
+	Period:       65535
+	References:   https://github.com/batari-Basic
+	Notes: 	This is the rand16 routine included with the 2600 development
+		language batari Basic, and the default rand routine in 
+		7800basic, run backwards
+	Sample:       (a124) 19 ba d8 d2 fd e3 a3 41 ...
+	Code:
+		  LDA randv1
+		  LSR
+		  LDA randv0
+		  ROL
+		  BCC skip_eor16
+		  EOR #$68
+		skip_eor16:
+		  STA randv0
+		  ROR randv1
+		  EOR randv1
 
-pitfall8left (3)
+
+pitfall8left (4)
 	Type:         fibonacci8 lfsr
 	6502 author:  David Crane
 	RAM:          1 byte
@@ -146,7 +170,7 @@ pitfall8left (3)
 		  LDA randv0
 
 
-pitfall8right (4)
+pitfall8right (5)
 	Type:         fibonacci8 lfsr
 	6502 author:  David Crane
 	RAM:          1 byte
@@ -172,7 +196,7 @@ pitfall8right (4)
 		  LDA randv0
 
 
-xorshift16 (5)
+xorshift16 (6)
 	Type:         xorshift16 lfsr
 	6502 author:  Veikko
 	RAM:          2 bytes
@@ -197,7 +221,7 @@ xorshift16 (5)
 		  STA randv1
 
 
-xhybrid24 (6)
+xhybrid24 (7)
 	Type:         hybrid xorshift16+galois8
 	6502 author:  (hybrid code) Mike Saarna, (base xorshift16) Veikko
 	RAM:          3 bytes
@@ -239,7 +263,7 @@ xhybrid24 (6)
 		  EOR randv2
 
 
-overlap24 (7)
+overlap24 (8)
 	Type:         ??
 	6502 author:  ??
 	RAM:          3 bytes
@@ -277,7 +301,7 @@ overlap24 (7)
 		  STY randv2
 		  STA randv0
 
-riverraid16 (8)
+riverraid16 (9)
 	Type:         ??
 	6502 author:  Carol Shaw
 	RAM:          2 bytes

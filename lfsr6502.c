@@ -638,7 +638,7 @@ void outputbyte(int val)
 	printf("%02x ", val);
 	break;
     case OUTHEXRET:
-	printf("%02x\n", val);
+	printf("%02x %02x%02x\n", val,randv[1],randv[0]);
 	break;
     case OUTDECSPC:
 	printf("%d ", val);
@@ -833,7 +833,7 @@ void usage(char *programname)
     fprintf(stderr, "        0 = batari8 [default]\n");
     fprintf(stderr, "        1 = batari8rev\n");
     fprintf(stderr, "        2 = batari16\n");
-    fprintf(stderr, "        3 = batari16\n");
+    fprintf(stderr, "        3 = batari16rev\n");
     fprintf(stderr, "        4 = pitfall8left\n");
     fprintf(stderr, "        5 = pitfall8right\n");
     fprintf(stderr, "        6 = xorshift16\n");
